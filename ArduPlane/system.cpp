@@ -33,8 +33,9 @@ void Plane::init_ardupilot()
 
     // setup any board specific drivers
     BoardConfig.init();
-#if HAL_WITH_UAVCAN
-    BoardConfig_CAN.init();
+
+#if HAL_MAX_CAN_PROTOCOL_DRIVERS
+    can_mgr.init();
 #endif
 
     // initialise rc channels including setting mode
@@ -69,9 +70,6 @@ void Plane::init_ardupilot()
     // setup telem slots with serial ports
     gcs().setup_uarts();
 
-#if GENERATOR_ENABLED
-    generator.init();
-#endif
 
 #if OSD_ENABLED == ENABLED
     osd.init();
@@ -98,9 +96,6 @@ void Plane::init_ardupilot()
 #if EFI_ENABLED
     g2.efi.init();
 #endif
-
-    // give AHRS the airspeed sensor
-    ahrs.set_airspeed(&airspeed);
 
     // GPS Initialization
     gps.set_log_gps_bit(MASK_LOG_GPS);
@@ -159,9 +154,6 @@ void Plane::init_ardupilot()
 #if GRIPPER_ENABLED == ENABLED
     g2.gripper.init();
 #endif
-
-    // disable safety if requested
-    BoardConfig.init_safety();
 }
 
 //********************************************************************************
@@ -209,8 +201,6 @@ void Plane::startup_ground(void)
     // mid-flight, so set the serial ports non-blocking once we are
     // ready to fly
     serial_manager.set_blocking_writes_all(false);
-
-    gcs().send_text(MAV_SEVERITY_INFO,"Ground start complete");
 }
 
 
@@ -435,7 +425,7 @@ bool Plane::should_log(uint32_t mask)
  */
 int8_t Plane::throttle_percentage(void)
 {
-    if (quadplane.in_vtol_mode()) {
+    if (quadplane.in_vtol_mode() && !quadplane.in_tailsitter_vtol_transition()) {
         return quadplane.throttle_percentage();
     }
     float throttle = SRV_Channels::get_output_scaled(SRV_Channel::k_throttle);

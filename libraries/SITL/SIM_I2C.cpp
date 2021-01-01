@@ -23,6 +23,9 @@
 #include "SIM_I2C.h"
 #include "SIM_ToshibaLED.h"
 #include "SIM_MaxSonarI2CXL.h"
+#include "SIM_BattMonitor_SMBus_Maxell.h"
+#include "SIM_BattMonitor_SMBus_Rotoye.h"
+#include "SIM_Airspeed_DLVR.h"
 
 #include <signal.h>
 
@@ -43,6 +46,9 @@ static IgnoredI2CDevice ignored;
 
 static ToshibaLED toshibaled;
 static MaxSonarI2CXL maxsonari2cxl;
+static Maxell maxell;
+static Rotoye rotoye;
+static Airspeed_DLVR airspeed_dlvr;
 
 struct i2c_device_at_address {
     uint8_t bus;
@@ -55,7 +61,16 @@ struct i2c_device_at_address {
     { 1, 0x40, ignored }, // KellerLD
     { 1, 0x70, maxsonari2cxl },
     { 1, 0x76, ignored }, // MS56XX
+    { 2, 0x0B, rotoye },
+    { 2, 0x28, airspeed_dlvr },
 };
+
+void I2C::init()
+{
+    for (auto &i : i2c_devices) {
+        i.device.init();
+    }
+}
 
 void I2C::update(const class Aircraft &aircraft)
 {
@@ -79,7 +94,7 @@ int I2C::ioctl_rdwr(i2c_rdwr_ioctl_data *data)
             }
         }
         if (!handled) {
-            ::fprintf(stderr, "Unhandled i2c message: addr=0x%x flags=%u len=%u\n", msg.addr, msg.flags, msg.len);
+            ::fprintf(stderr, "Unhandled i2c message: bus=%u addr=0x%02x flags=%u len=%u\n", msg.bus, msg.addr, msg.flags, msg.len);
             return -1;  // ?!
         }
     }
